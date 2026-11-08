@@ -2,6 +2,7 @@ import hashlib
 import shutil
 import re
 import os
+import subprocess
 from pathlib import Path
 Import("env")
 
@@ -55,15 +56,28 @@ def bin_copy(source, target, env):
     cppdefines = env.get("CPPDEFINES", [])
     psram = 'BOARD_HAS_PSRAM' in cppdefines
 
+    # Optional suffix to tell custom builds apart from official ones, e.g. custom_fw_suffix = menlo
+    # The short git commit is added after it, with "-dirty" if there are uncommitted changes
+    fw_suffix = env.GetProjectOption("custom_fw_suffix", "").strip()
+    if fw_suffix:
+        try:
+            commit = subprocess.run(["git", "rev-parse", "--short=8", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+            dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], capture_output=True, text=True, check=True).stdout.strip()
+            fw_suffix += f"-{commit}{'-dirty' if dirty else ''}"
+        except (OSError, subprocess.CalledProcessError):
+            pass  # not a git checkout: suffix only
+
     print("=" * 90)
     print(f"EMS-ESP version: {app_version}")
+    if fw_suffix:
+        print(f"Build suffix: {fw_suffix}")
     print(f"Has PSRAM: {'Yes' if psram else 'No'}")
     print(f"MCU: {mcu}")
     print(f"Flash Mem: {flash_mem}")
 
     # Convert . to _ so Windows doesn't complain
     # Format is EMS-ESP-<version>-<mcu>-<flash> with + at the end if it has PSRAM
-    variant = f"{fw_name}-{app_version.replace('.', '_')}-{mcu}-{flash_mem}{'+' if psram else ''}"
+    variant = f"{fw_name}-{app_version.replace('.', '_')}{'-' + fw_suffix if fw_suffix else ''}-{mcu}-{flash_mem}{'+' if psram else ''}"
 
     # Create output directories
     firmware_dir = OUTPUT_DIR / "firmware"
