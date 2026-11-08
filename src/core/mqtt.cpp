@@ -495,38 +495,10 @@ bool Mqtt::get_publish_onchange(uint8_t device_type) {
 }
 
 // human-readable cause for a MQTT disconnect reason, nullptr if not recognized
-static const char * mqtt_disconnect_cause(espMqttClientTypes::DisconnectReason reason) {
-    using espMqttClientTypes::DisconnectReason;
-
-    switch (reason) {
-    case DisconnectReason::TCP_DISCONNECTED:
-        return "TCP";
-    case DisconnectReason::MQTT_UNACCEPTABLE_PROTOCOL_VERSION:
-        return "Unaccepted protocol version";
-    case DisconnectReason::MQTT_IDENTIFIER_REJECTED:
-        return "Identifier Rejected";
-    case DisconnectReason::MQTT_SERVER_UNAVAILABLE:
-        return "Server unavailable";
-    case DisconnectReason::MQTT_MALFORMED_CREDENTIALS:
-        return "Malformed credentials";
-    case DisconnectReason::MQTT_NOT_AUTHORIZED:
-        return "Not authorized";
-    case DisconnectReason::TLS_BAD_FINGERPRINT:
-        return "Server fingerprint invalid";
-    default:
-        return nullptr;
-    }
-}
-
 void Mqtt::on_disconnect(espMqttClientTypes::DisconnectReason reason) {
     connected_ = false;
 
-    const char * cause = mqtt_disconnect_cause(reason);
-    if (cause) {
-        LOG_ERROR("MQTT connection failure: %s. Retrying...", cause);
-    } else {
-        LOG_ERROR("MQTT connection failure: code %d. Retrying...", static_cast<int>(reason));
-    }
+    (void)reason; // the failure is logged in detail by MqttSettingsService::logConnectFailure()
 
     mqttClient_->clearQueue(true);
 }
@@ -537,7 +509,6 @@ void Mqtt::on_connect() {
         return; // prevent duplicated connections
     }
 
-    LOG_INFO("MQTT connected");
 
     connected_ = true;
     connectcount_++;

@@ -64,6 +64,11 @@ class espMqttClientSecure : public MqttClientSetup<espMqttClientSecure> {
     espMqttClientSecure & setPrivateKey(const char * privateKey);
     espMqttClientSecure & setPreSharedKey(const char * pskIdent, const char * psKey);
 
+    // stages, timings and errors of the last connect attempt, for logging
+    const espMqttClientInternals::ConnectDiag & connectDiag() const {
+        return _client.diag;
+    }
+
   protected:
     espMqttClientInternals::ClientSecureSync _client;
 };

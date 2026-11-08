@@ -146,6 +146,19 @@ class MqttSettingsService : public StatefulService<MqttSettings> {
     onMqttMessage(const espMqttClientTypes::MessageProperties & properties, const char * topic, const uint8_t * payload, size_t len, size_t index, size_t total);
 
     bool configureMqtt();
+
+    // connection logging
+    bool     _clientIsSecure = false; // _mqttClient is an espMqttClientSecure
+    bool     isSecureClient() const {
+        return _clientIsSecure && _mqttClient;
+    }
+    uint32_t _failedAttempts = 0; // failed connects since the last successful one
+    uint32_t _connectedAt    = 0; // uptime (ms) of the last successful connect, 0 when not connected
+    String   _lastFailure;        // last logged failure message, a changed message is always logged
+    void     logConnectAttempt(bool reconfigured);
+    void     logTlsSetup();
+    void     logConnectFailure(espMqttClientTypes::DisconnectReason reason);
+    void     logConnected();
 };
 
 #endif
