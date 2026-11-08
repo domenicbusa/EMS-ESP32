@@ -4,6 +4,7 @@
 
 #ifndef EMSESP_STANDALONE
 #include <mbedtls/base64.h>
+#include <cstdarg>
 #include <memory>
 #include <string>
 #endif
@@ -251,6 +252,42 @@ bool MqttSettingsService::configureMqtt() {
 
 #ifndef EMSESP_STANDALONE
 
+// The logger cuts every line at 255 characters (uuid::log::Logger::MAX_LOG_LENGTH), which would lose the hints at the
+// end of the longer messages, so long messages are wrapped over several lines at word boundaries
+static void mqtt_log(uuid::log::Level level, const char * format, ...) {
+    char    text[1024];
+    va_list ap;
+    va_start(ap, format);
+    int len = vsnprintf(text, sizeof(text), format, ap);
+    va_end(ap);
+    if (len <= 0) {
+        return;
+    }
+    len = std::min(len, static_cast<int>(sizeof(text)) - 1);
+
+    constexpr int chunk = 230; // leaves room for the "  ..." continuation prefix
+    int           pos   = 0;
+    bool          first = true;
+    while (pos < len) {
+        int n = len - pos;
+        if (n > chunk) {
+            n = chunk;
+            while (n > chunk / 2 && text[pos + n] != ' ') {
+                n--; // break at a space if there is one in the second half of the chunk
+            }
+            if (text[pos + n] != ' ') {
+                n = chunk; // no space: hard break
+            }
+        }
+        emsesp::EMSESP::logger().log(level, first ? "%.*s" : "  ...%.*s", n, text + pos);
+        pos += n;
+        while (pos < len && text[pos] == ' ') {
+            pos++;
+        }
+        first = false;
+    }
+}
+
 // the system clock is set (NTP) if it's past the timestamp ESP_SSLClient itself uses as "valid"
 static bool clock_is_set() {
     return time(nullptr) > ESP_SSLCLIENT_VALID_TIMESTAMP;
@@ -359,22 +396,22 @@ void MqttSettingsService::logConnectAttempt(bool reconfigured) {
                         : _state.rootCA == "insecure" ? "TLS without certificate check (insecure)"
                                                       : "TLS, broker certificate checked against the CA";
     if (reconfigured || _failedAttempts == 0) {
-        emsesp::EMSESP::logger().info("MQTT connecting to %s:%u (%s), user '%s', client ID '%s'",
+        mqtt_log(uuid::log::Level::INFO, "MQTT connecting to %s:%u (%s), user '%s', client ID '%s'",
                                       _state.host.c_str(),
                                       _state.port,
                                       mode,
                                       _state.username.c_str(),
                                       _state.clientId.c_str());
         if (_state.enableTLS && _state.port == 1883) {
-            emsesp::EMSESP::logger().warning("MQTT TLS is on but port is 1883, the usual plain MQTT port. TLS brokers normally listen on 8883");
+            mqtt_log(uuid::log::Level::WARNING, "MQTT TLS is on but port is 1883, the usual plain MQTT port. TLS brokers normally listen on 8883");
         } else if (!_state.enableTLS && _state.port == 8883) {
-            emsesp::EMSESP::logger().warning("MQTT TLS is off but port is 8883, the usual TLS port. Turn on TLS?");
+            mqtt_log(uuid::log::Level::WARNING, "MQTT TLS is off but port is 8883, the usual TLS port. Turn on TLS?");
         }
         if (_state.enableTLS) {
             logTlsSetup();
         }
     } else {
-        emsesp::EMSESP::logger().debug("MQTT reconnecting to %s:%u, attempt %u", _state.host.c_str(), _state.port, _failedAttempts + 1);
+        mqtt_log(uuid::log::Level::DEBUG, "MQTT reconnecting to %s:%u, attempt %u", _state.host.c_str(), _state.port, _failedAttempts + 1);
     }
 #else
     (void)reconfigured;
@@ -384,25 +421,24 @@ void MqttSettingsService::logConnectAttempt(bool reconfigured) {
 // what the TLS check is going to work with, and the known ways it fails before it even starts
 void MqttSettingsService::logTlsSetup() {
 #ifndef EMSESP_STANDALONE
-    auto log = emsesp::EMSESP::logger();
 
     if (!clock_is_set()) {
-        log.warning("MQTT TLS: the clock isn't set yet (NTP). Certificate dates can't be checked until it is, so a TLS connect with a CA will fail until "
+        mqtt_log(uuid::log::Level::WARNING, "MQTT TLS: the clock isn't set yet (NTP). Certificate dates can't be checked until it is, so a TLS connect with a CA will fail until "
                     "NTP syncs");
     }
 
     if (_state.rootCA == "insecure") {
-        log.warning("MQTT TLS: no CA certificate set, the broker's certificate is NOT checked (encrypted, but not authenticated)");
+        mqtt_log(uuid::log::Level::WARNING, "MQTT TLS: no CA certificate set, the broker's certificate is NOT checked (encrypted, but not authenticated)");
         return;
     }
 
     CaInfo ca = decode_ca(_state.rootCA);
     if (ca.err == -1) {
-        log.err("MQTT TLS: the CA certificate is not valid base64. Paste the whole PEM, including the BEGIN/END CERTIFICATE lines");
+        mqtt_log(uuid::log::Level::ERR, "MQTT TLS: the CA certificate is not valid base64. Paste the whole PEM, including the BEGIN/END CERTIFICATE lines");
         return;
     }
     if (ca.err) {
-        log.err("MQTT TLS: the CA certificate could not be decoded (BearSSL X.509 error %d, %u bytes). Paste exactly one PEM certificate",
+        mqtt_log(uuid::log::Level::ERR, "MQTT TLS: the CA certificate could not be decoded (BearSSL X.509 error %d, %u bytes). Paste exactly one PEM certificate",
                 ca.err,
                 static_cast<unsigned>(ca.der_len));
         return;
@@ -411,7 +447,7 @@ void MqttSettingsService::logTlsSetup() {
     char from[12], until[12];
     format_date(ca.not_before, from, sizeof(from));
     format_date(ca.not_after, until, sizeof(until));
-    log.info("MQTT TLS: CA certificate CN='%s', %s, %s, valid %s to %s",
+    mqtt_log(uuid::log::Level::INFO, "MQTT TLS: CA certificate CN='%s', %s, %s, valid %s to %s",
              ca.cn,
              ca.key[0] ? ca.key : "unknown key type",
              ca.is_ca ? "CA" : "not a CA (only works if it is the broker's own self-signed certificate)",
@@ -421,20 +457,20 @@ void MqttSettingsService::logTlsSetup() {
     if (clock_is_set()) {
         time_t now = time(nullptr);
         if (now < ca.not_before) {
-            log.err("MQTT TLS: the CA certificate is not valid until %s", from);
+            mqtt_log(uuid::log::Level::ERR, "MQTT TLS: the CA certificate is not valid until %s", from);
         } else if (now > ca.not_after) {
-            log.err("MQTT TLS: the CA certificate expired on %s", until);
+            mqtt_log(uuid::log::Level::ERR, "MQTT TLS: the CA certificate expired on %s", until);
         }
     }
 
     // BearSSL checks the host name against the DNS names and CN of the broker's certificate. It has no IP address matching
     if (host_is_ip(_state.host)) {
-        log.warning("MQTT TLS: host '%s' is an IP address. The certificate check matches DNS names only, so this fails unless the broker certificate "
+        mqtt_log(uuid::log::Level::WARNING, "MQTT TLS: host '%s' is an IP address. The certificate check matches DNS names only, so this fails unless the broker certificate "
                     "lists '%s' as a DNS name. Use a DNS host name that is in the certificate",
                     _state.host.c_str(),
                     _state.host.c_str());
     } else if (ca.cn[0] && !_state.host.equalsIgnoreCase(ca.cn) && !ca.is_ca) {
-        log.warning("MQTT TLS: host '%s' is not the certificate's CN '%s'. It must be one of the certificate's DNS names, or the check fails",
+        mqtt_log(uuid::log::Level::WARNING, "MQTT TLS: host '%s' is not the certificate's CN '%s'. It must be one of the certificate's DNS names, or the check fails",
                     _state.host.c_str(),
                     ca.cn);
     }
@@ -457,7 +493,7 @@ void MqttSettingsService::logConnectFailure(espMqttClientTypes::DisconnectReason
     _connectedAt                   = 0;
     _failedAttempts++;
 
-    char msg[400];
+    char msg[640];
     char heap[48];
     heap_info(heap, sizeof(heap));
 
@@ -555,7 +591,7 @@ void MqttSettingsService::logConnectFailure(espMqttClientTypes::DisconnectReason
     // log the first few, then every 10th, and always when the failure changes
     const bool changed = !_lastFailure.equals(msg);
     if (_failedAttempts <= 3 || (_failedAttempts % 10) == 0 || changed) {
-        emsesp::EMSESP::logger().err("MQTT connection failed (attempt %u): %s [%s]. Retrying...", _failedAttempts, msg, heap);
+        mqtt_log(uuid::log::Level::ERR, "MQTT connection failed (attempt %u): %s [%s]. Retrying...", _failedAttempts, msg, heap);
         _lastFailure = msg;
     }
 #else
@@ -570,7 +606,7 @@ void MqttSettingsService::logConnected() {
     heap_info(heap, sizeof(heap));
     if (isSecureClient()) {
         const auto & d = static_cast<espMqttClientSecure *>(_mqttClient)->connectDiag();
-        emsesp::EMSESP::logger().info("MQTT connected to %s:%u (%s) over TLS (%s), DNS %u ms, TCP %u ms, TLS %u ms, max fragment length %s, after %u failed "
+        mqtt_log(uuid::log::Level::INFO, "MQTT connected to %s:%u (%s) over TLS (%s), DNS %u ms, TCP %u ms, TLS %u ms, max fragment length %s, after %u failed "
                                       "attempts [%s]",
                                       _state.host.c_str(),
                                       _state.port,
@@ -583,7 +619,7 @@ void MqttSettingsService::logConnected() {
                                       _failedAttempts,
                                       heap);
     } else {
-        emsesp::EMSESP::logger().info("MQTT connected to %s:%u (plain MQTT, no TLS), after %u failed attempts [%s]", _state.host.c_str(), _state.port, _failedAttempts, heap);
+        mqtt_log(uuid::log::Level::INFO, "MQTT connected to %s:%u (plain MQTT, no TLS), after %u failed attempts [%s]", _state.host.c_str(), _state.port, _failedAttempts, heap);
     }
     _failedAttempts = 0;
     _lastFailure    = "";
