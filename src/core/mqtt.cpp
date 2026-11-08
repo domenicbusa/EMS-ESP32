@@ -45,6 +45,7 @@ std::string Mqtt::discovery_prefix_;
 uint8_t     Mqtt::discovery_type_;
 uint8_t     Mqtt::ha_number_mode_;
 bool        Mqtt::send_response_;
+bool        Mqtt::telemetry_readings_;
 bool        Mqtt::publish_single_;
 bool        Mqtt::publish_single2cmd_;
 
@@ -135,6 +136,17 @@ void Mqtt::loop() {
     if (currentMillis - last_publish_heartbeat_ > publish_time_heartbeat_) {
         last_publish_heartbeat_ = currentMillis;
         EMSESP::system_.send_heartbeat(); // send MQTT heartbeat topic
+    }
+
+    // telemetry readings: one combined message on a fixed interval instead of the per-device topics below
+    // uses the boiler publish time, or 10 seconds (the boiler's own broadcast rate) when that is set to "on change"
+    if (telemetry_readings_) {
+        const uint32_t interval = publish_time_boiler_ ? publish_time_boiler_ : 10000;
+        if (queuecount_ == 0 && (currentMillis - last_publish_telemetry_ > interval)) {
+            last_publish_telemetry_ = currentMillis;
+            EMSESP::publish_telemetry_readings();
+        }
+        return;
     }
 
     // temperature and analog sensor publish on change
@@ -371,6 +383,7 @@ void Mqtt::load_settings() {
         publish_single_     = mqttSettings.publish_single;
         publish_single2cmd_ = mqttSettings.publish_single2cmd;
         send_response_      = mqttSettings.send_response;
+        telemetry_readings_ = mqttSettings.telemetry_readings;
         discovery_prefix_   = mqttSettings.discovery_prefix.c_str();
         entity_format_      = mqttSettings.entity_format;
         discovery_type_     = mqttSettings.discovery_type;
@@ -548,6 +561,10 @@ void Mqtt::on_connect() {
 
     // publish to the last will topic (see Mqtt::start() function) to say we're alive
     queue_publish_retain("status", "online"); // retain: https://github.com/emsesp/EMS-ESP32/discussions/2086
+
+    if (telemetry_readings_) {
+        EMSESP::publish_connection_event(); // <base>/events/connection
+    }
 
     // send initial MQTT messages for some of our services
     EMSESP::system_.send_heartbeat(); // send heartbeat

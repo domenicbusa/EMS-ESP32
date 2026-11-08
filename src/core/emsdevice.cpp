@@ -2077,6 +2077,68 @@ void EMSdevice::publish_all_values() {
 // For each value in the device create the json object pair and add it to given json
 // return false if empty
 // this is used to create the MQTT payloads, Console messages and Web API call responses
+// unit suffix for telemetry readings keys, e.g. curflowtemp -> curflowtemp_c
+// returns nullptr when the value has no physical unit
+static const char * telemetry_uom_suffix(const uint8_t uom) {
+    switch (uom) {
+    case DeviceValueUOM::DEGREES:
+    case DeviceValueUOM::DEGREES_R:
+        return EMSESP::system_.fahrenheit() ? "f" : "c"; // values are converted when fahrenheit is set
+    case DeviceValueUOM::FAHRENHEIT:
+        return "f";
+    case DeviceValueUOM::PERCENT:
+        return "pct";
+    case DeviceValueUOM::LMIN:
+        return "lpm";
+    case DeviceValueUOM::KWH:
+        return "kwh";
+    case DeviceValueUOM::WH:
+        return "wh";
+    case DeviceValueUOM::HOURS:
+        return "h";
+    case DeviceValueUOM::MINUTES:
+        return "min";
+    case DeviceValueUOM::UA:
+        return "ua";
+    case DeviceValueUOM::BAR:
+        return "bar";
+    case DeviceValueUOM::KW:
+        return "kw";
+    case DeviceValueUOM::W:
+        return "w";
+    case DeviceValueUOM::KB:
+        return "kb";
+    case DeviceValueUOM::SECONDS:
+        return "s";
+    case DeviceValueUOM::DBM:
+        return "dbm";
+    case DeviceValueUOM::MV:
+        return "mv";
+    case DeviceValueUOM::SQM:
+        return "m2";
+    case DeviceValueUOM::M3:
+        return "m3";
+    case DeviceValueUOM::L:
+        return "l";
+    case DeviceValueUOM::KMIN:
+        return "kmin";
+    case DeviceValueUOM::K:
+        return "k";
+    case DeviceValueUOM::VOLTS:
+        return "v";
+    case DeviceValueUOM::MBAR:
+        return "mbar";
+    case DeviceValueUOM::LH:
+        return "lph";
+    case DeviceValueUOM::CTKWH:
+        return "ct_per_kwh";
+    case DeviceValueUOM::HERTZ:
+        return "hz";
+    default:
+        return nullptr;
+    }
+}
+
 bool EMSdevice::generate_values(JsonObject output, const int8_t tag_filter, const bool nested, const uint8_t output_target) {
     bool       has_values = false; // to see if we've added a value. it's faster than doing a json.size() at the end
     uint8_t    old_tag    = 255;   // NAN
@@ -2096,6 +2158,11 @@ bool EMSdevice::generate_values(JsonObject output, const int8_t tag_filter, cons
         //  4. it must not have the exclude flag set or outputs to console
         if (dv.has_state(DeviceValueState::DV_ACTIVE) && !fullname.empty() && (tag_filter == DeviceValueTAG::TAG_NONE || tag_filter == dv.tag)
             && (output_target == OUTPUT_TARGET::CONSOLE || !dv.has_state(DeviceValueState::DV_API_MQTT_EXCLUDE))) {
+            // telemetry readings are numbers only: skip text values and commands
+            if (output_target == OUTPUT_TARGET::TELEMETRY && (dv.type == DeviceValueType::STRING || dv.type == DeviceValueType::CMD)) {
+                continue;
+            }
+
             has_values = true; // flagged if we actually have data
 
             // we have a tag if it matches the filter given, and that the tag name is not empty/""
@@ -2120,6 +2187,18 @@ bool EMSdevice::generate_values(JsonObject output, const int8_t tag_filter, cons
                 } else {
                     snprintf(name, sizeof(name), "%s (%s)", fullname.c_str(), dv.short_name);
                 }
+            } else if (output_target == OUTPUT_TARGET::TELEMETRY) {
+                // flat snake_case key: <device>_[<tag>_]<short name>[_<unit>], e.g. thermostat_hc1_seltemp_c, boiler_burngas
+                const char * suffix = telemetry_uom_suffix(dv.uom);
+                snprintf(name,
+                         sizeof(name),
+                         "%s_%s%s%s%s%s",
+                         device_type_2_device_name(device_type_),
+                         have_tag ? tag_to_mqtt(dv.tag) : "",
+                         have_tag ? "_" : "",
+                         dv.short_name,
+                         suffix ? "_" : "",
+                         suffix ? suffix : "");
             } else {
                 strlcpy(name, (dv.short_name), sizeof(name)); // use short name
 
@@ -2147,6 +2226,8 @@ bool EMSdevice::generate_values(JsonObject output, const int8_t tag_filter, cons
                 if (output_target == OUTPUT_TARGET::CONSOLE) {
                     char s[12];
                     json[name] = Helpers::render_boolean(s, value_b, true); // console use web settings
+                } else if (output_target == OUTPUT_TARGET::TELEMETRY) {
+                    json[name] = value_b ? 1 : 0; // always numeric
                 } else {
                     Mqtt::add_value_bool(json, name, value_b);
                 }
@@ -2161,7 +2242,8 @@ bool EMSdevice::generate_values(JsonObject output, const int8_t tag_filter, cons
             // handle ENUMs
             else if ((dv.type == DeviceValueType::ENUM) && (*(uint8_t *)(dv.value_p) < dv.options_size)) {
                 // check for numeric enum-format, console use text format
-                if (EMSESP::system_.enum_format() == ENUM_FORMAT_INDEX && output_target != OUTPUT_TARGET::CONSOLE) {
+                if ((EMSESP::system_.enum_format() == ENUM_FORMAT_INDEX && output_target != OUTPUT_TARGET::CONSOLE)
+                    || output_target == OUTPUT_TARGET::TELEMETRY) {
                     json[name] = (uint8_t)(*(uint8_t *)(dv.value_p));
                 } else {
                     json[name] = Helpers::translated_word(dv.options[*(uint8_t *)(dv.value_p)]);

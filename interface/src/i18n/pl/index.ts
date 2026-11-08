@@ -206,6 +206,7 @@ const pl: BaseTranslation = {
   MQTT_NEST_1: 'zagnieżdżone w jednym temacie',
   MQTT_NEST_2: 'jako oddzielne tematy',
   MQTT_RESPONSE: 'Rezultat wykonania komendy publikuj w temacie "response"',
+  MQTT_TELEMETRY: 'Publish all values as one numeric JSON message to `telemetry/readings` (replaces device topics, disables HA discovery)',
   MQTT_PUBLISH_TEXT_1: 'Tematy z pojedynczą wartością publikuj po jej zmianie',
   MQTT_PUBLISH_TEXT_2: 'Publikuj w tematach "command" (ioBroker)',
   MQTT_PUBLISH_TEXT_3: 'Włącz opcję "MQTT discovery"',

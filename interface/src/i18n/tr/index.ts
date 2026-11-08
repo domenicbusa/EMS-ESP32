@@ -206,6 +206,7 @@ const tr: Translation = {
   MQTT_NEST_1: 'Tek konu üzerine yerleşmiş',
   MQTT_NEST_2: 'Ayrı konular olarak',
   MQTT_RESPONSE: 'Komut çıktısını bir `cevap` konusuna yayınla',
+  MQTT_TELEMETRY: 'Publish all values as one numeric JSON message to `telemetry/readings` (replaces device topics, disables HA discovery)',
   MQTT_PUBLISH_TEXT_1: 'Değişimde tek değerli konuları yayınla',
   MQTT_PUBLISH_TEXT_2: 'Komut konularına yayınla (ioBroker)',
   MQTT_PUBLISH_TEXT_3: 'MQTT keşfi etkinleştir (Home Assistant, Domoticz)',

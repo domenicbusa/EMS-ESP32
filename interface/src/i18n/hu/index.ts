@@ -206,6 +206,7 @@ const hu: Translation = {
   MQTT_NEST_1: 'Egyetlen témába ágyazva',
   MQTT_NEST_2: 'Különálló témákként',
   MQTT_RESPONSE: 'Parancsok kimenetének publikálása egy `response` témába',
+  MQTT_TELEMETRY: 'Publish all values as one numeric JSON message to `telemetry/readings` (replaces device topics, disables HA discovery)',
   MQTT_PUBLISH_TEXT_1: 'Egyedi értékű témák publikálása változáskor',
   MQTT_PUBLISH_TEXT_2: 'Publikálás parancstémákra (ioBroker)',
   MQTT_PUBLISH_TEXT_3: 'MQTT Discovery engedélyezése',

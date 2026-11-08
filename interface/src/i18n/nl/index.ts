@@ -206,6 +206,7 @@ const nl: Translation = {
   MQTT_NEST_1: 'Genest in 1 topic',
   MQTT_NEST_2: 'Als individuele topics',
   MQTT_RESPONSE: 'Publiceer commando output naar een `response` topic',
+  MQTT_TELEMETRY: 'Publish all values as one numeric JSON message to `telemetry/readings` (replaces device topics, disables HA discovery)',
   MQTT_PUBLISH_TEXT_1: 'Publiceer enkele waarde topics on change',
   MQTT_PUBLISH_TEXT_2: 'Publiceer naar commando topics (ioBroker)',
   MQTT_PUBLISH_TEXT_3: 'Activeer MQTT Discovery',

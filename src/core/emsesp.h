@@ -129,6 +129,8 @@ class EMSESP {
     static uuid::log::Logger logger();
 
     static void publish_device_values(uint8_t device_type);
+    static void publish_telemetry_readings();
+    static void publish_connection_event();
     static void publish_other_values();
     static void publish_sensor_values(const bool time, const bool force = false);
     static void publish_all(bool force = false);

@@ -718,6 +718,7 @@ let mqtt_settings = {
   discovery_type: 0,
   discovery_prefix: 'homeassistant',
   send_response: true,
+  telemetry_readings: false,
   publish_single: false,
   enableTLS: true,
   rootCA: ''

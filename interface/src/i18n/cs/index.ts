@@ -206,6 +206,7 @@ const cs: Translation = {
   MQTT_NEST_1: 'Vnořené do jednoho tématu',
   MQTT_NEST_2: 'Jako samostatná témata',
   MQTT_RESPONSE: 'Publikovat výstup příkazů do tématu `response`',
+  MQTT_TELEMETRY: 'Publish all values as one numeric JSON message to `telemetry/readings` (replaces device topics, disables HA discovery)',
   MQTT_PUBLISH_TEXT_1: 'Publikovat témata jednotlivých hodnot při změně',
   MQTT_PUBLISH_TEXT_2: 'Publikovat do příkazových témat (ioBroker)',
   MQTT_PUBLISH_TEXT_3: 'Povolit MQTT Discovery',

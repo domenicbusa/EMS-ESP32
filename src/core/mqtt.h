@@ -210,6 +210,10 @@ class Mqtt {
         return mqtt_enabled_ && publish_single_;
     }
 
+    static bool telemetry_readings() {
+        return mqtt_enabled_ && telemetry_readings_;
+    }
+
     static bool publish_single2cmd() {
         return publish_single2cmd_;
     }
@@ -292,6 +296,7 @@ class Mqtt {
     uint32_t last_publish_water_      = 0;
     uint32_t last_publish_other_      = 0;
     uint32_t last_publish_sensor_     = 0;
+    uint32_t last_publish_telemetry_  = 0;
     uint32_t last_publish_heartbeat_  = 0;
     // uint32_t last_publish_queue_      = 0;
 
@@ -327,6 +332,7 @@ class Mqtt {
     static bool        publish_single_;
     static bool        publish_single2cmd_;
     static bool        send_response_;
+    static bool        telemetry_readings_;
 };
 
 } // namespace emsesp

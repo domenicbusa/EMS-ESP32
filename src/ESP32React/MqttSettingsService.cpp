@@ -262,6 +262,7 @@ void MqttSettings::read(MqttSettings & settings, JsonObject root) {
     root["publish_single"]          = settings.publish_single;
     root["publish_single2cmd"]      = settings.publish_single2cmd;
     root["send_response"]           = settings.send_response;
+    root["telemetry_readings"]      = settings.telemetry_readings;
 }
 
 StateUpdateResult MqttSettings::update(JsonObject root, MqttSettings & settings) {
@@ -299,6 +300,7 @@ StateUpdateResult MqttSettings::update(JsonObject root, MqttSettings & settings)
     newSettings.publish_single     = root["publish_single"] | EMSESP_DEFAULT_PUBLISH_SINGLE;
     newSettings.publish_single2cmd = root["publish_single2cmd"] | EMSESP_DEFAULT_PUBLISH_SINGLE2CMD;
     newSettings.send_response      = root["send_response"] | EMSESP_DEFAULT_SEND_RESPONSE;
+    newSettings.telemetry_readings = root["telemetry_readings"] | EMSESP_DEFAULT_TELEMETRY_READINGS;
     newSettings.entity_format      = static_cast<uint8_t>(root["entity_format"] | EMSESP_DEFAULT_ENTITY_FORMAT);
 
     if (newSettings.enabled != settings.enabled) {
@@ -327,6 +329,16 @@ StateUpdateResult MqttSettings::update(JsonObject root, MqttSettings & settings)
     }
 
     if (newSettings.entity_format != settings.entity_format) {
+        changed = true;
+    }
+
+    // telemetry readings replace the regular device topics, so HA discovery and single-value topics make no sense with it
+    if (newSettings.telemetry_readings) {
+        newSettings.ha_enabled     = false;
+        newSettings.publish_single = false;
+    }
+
+    if (newSettings.telemetry_readings != settings.telemetry_readings) {
         changed = true;
     }
 

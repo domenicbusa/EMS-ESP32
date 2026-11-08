@@ -66,6 +66,7 @@ class WebCustomEntityService : public StatefulService<WebCustomEntity> {
     void fetch();
     void render_value(JsonObject output, CustomEntityItem const & entity, const bool useVal = false, const bool web = false, const bool add_uom = false);
     void show_values(JsonObject output);
+    bool telemetry_values(JsonObject output);
     void generate_value_web(JsonObject output, const bool is_dashboard = false);
 
     std::string get_metrics_prometheus();

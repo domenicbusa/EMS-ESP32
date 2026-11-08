@@ -18,6 +18,8 @@
 
 #include "emsesp.h"
 
+#include <sys/time.h> // gettimeofday for telemetry readings timestamps
+
 #ifndef EMSESP_STANDALONE
 #include "esp_ota_ops.h"
 #include "rom/rtc.h"
@@ -700,6 +702,11 @@ void EMSESP::reset_mqtt_ha() {
 // this will also create the HA /config topic for each device value
 // generate_values_json is called to build the device value (dv) object array
 void EMSESP::publish_device_values(uint8_t device_type) {
+    // telemetry readings replace the per-device topics, see publish_telemetry_readings()
+    if (Mqtt::telemetry_readings()) {
+        return;
+    }
+
     JsonDocument doc(PSRAM_DOC);
     JsonObject   json         = doc.to<JsonObject>();
     bool         need_publish = false;
@@ -743,6 +750,87 @@ void EMSESP::publish_device_values(uint8_t device_type) {
             }
         }
     }
+}
+
+// Unix epoch in milliseconds for telemetry payloads, or 0 while NTP hasn't set the clock
+static uint64_t telemetry_timestamp_ms() {
+    if (!EMSESP::system_.ntp_connected()) {
+        return 0;
+    }
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    return static_cast<uint64_t>(tv.tv_sec) * 1000ULL + static_cast<uint64_t>(tv.tv_usec / 1000);
+}
+
+// telemetry readings: everything EMS-ESP knows, as one flat JSON object of numbers, published to <base>/telemetry/readings
+// matches the menloIoTPlatform device contract (devices/<dev>/telemetry/readings), e.g.
+//   {"timestamp_ms":1794108609766,"burner_cur_pct":63,"flow_temp":40.4,"boiler_curflowtemp_c":40.4,"thermostat_hc1_seltemp_c":21}
+// - timestamp_ms is Unix epoch ms, or 0 while the clock isn't set (the consumer drops those points)
+// - custom entities keep their own names, EMS device values are <device>_[<circuit>_]<entity>[_<unit>],
+//   temperature sensors are <sensor name>_<unit>
+// - booleans are 0/1, enums are their index; text values and commands are left out
+void EMSESP::publish_telemetry_readings() {
+    JsonDocument doc(PSRAM_DOC);
+    JsonObject   json = doc.to<JsonObject>();
+
+    json["timestamp_ms"] = telemetry_timestamp_ms(); // first key, like the other devices on the platform
+
+    bool has_values = false;
+
+    // custom entities: the only data source in receive-only mode, where the boiler is never auto-detected
+    has_values |= webCustomEntityService.telemetry_values(json);
+
+    // detected EMS devices
+    for (const auto & emsdevice : emsdevices) {
+        if (emsdevice) {
+            has_values |= emsdevice->generate_values(json, DeviceValueTAG::TAG_NONE, false, EMSdevice::OUTPUT_TARGET::TELEMETRY);
+        }
+    }
+
+    // 1-wire temperature sensors
+    if (sensor_enabled()) {
+        const bool f = system_.fahrenheit();
+        for (const auto & sensor : temperaturesensor_.sensors()) {
+            if (!Helpers::hasValue(sensor.temperature_c)) {
+                continue;
+            }
+            // sensor names are user text: lower-case them and turn anything else into '_'
+            std::string key;
+            for (const char * c = sensor.name(); *c; c++) {
+                key += isalnum((unsigned char)*c) ? (char)tolower((unsigned char)*c) : '_';
+            }
+            key += f ? "_f" : "_c";
+            char val[10];
+            if (Helpers::render_value(val, sensor.temperature_c, 10, f ? 2 : 0)) {
+                json[key] = serialized(std::string(val));
+                has_values = true;
+            }
+        }
+    }
+
+    if (!has_values) {
+        return;
+    }
+
+    if (doc.overflowed()) {
+        LOG_WARNING("MQTT telemetry readings overflowed, not published");
+        return;
+    }
+
+    Mqtt::queue_publish("telemetry/readings", json, false); // never retained
+}
+
+// device connection event, published on every MQTT (re)connect to <base>/events/connection
+// {"event":"connected","node":"<hostname>","timestamp_ms":N}
+void EMSESP::publish_connection_event() {
+    JsonDocument doc;
+    JsonObject   json = doc.to<JsonObject>();
+    json["event"]     = "connected";
+    json["node"]      = system_.hostname();
+
+    json["timestamp_ms"] = telemetry_timestamp_ms();
+
+    Mqtt::queue_publish("events/connection", json, false);
 }
 
 // call the devices that don't need special attention

@@ -288,7 +288,7 @@ void WebCustomEntityService::render_value(JsonObject output, CustomEntityItem co
         break;
     case DeviceValueType::UINT8:
         if ((uint8_t)entity.value != EMS_VALUE_UINT8_NOTSET) {
-            std::string v = Helpers::render_value(payload, entity.factor * (int8_t)entity.value, 2);
+            std::string v = Helpers::render_value(payload, entity.factor * (uint8_t)entity.value, 2);
             output[name]  = add_uom ? serialized(v + ' ' + EMSdevice::uom_to_string(entity.uom)) : serialized(v);
         }
 
@@ -325,6 +325,30 @@ void WebCustomEntityService::render_value(JsonObject output, CustomEntityItem co
 
         break;
     }
+}
+
+// numeric values of all visible custom entities for the MQTT telemetry readings, keyed by entity name
+// booleans are always 0/1, text entities are left out. Returns true if anything was added
+bool WebCustomEntityService::telemetry_values(JsonObject output) {
+    bool added = false;
+    for (const CustomEntityItem & entity : *customEntityItems_) {
+        if (entity.hide) {
+            continue;
+        }
+        if (entity.value_type == DeviceValueType::BOOL) {
+            if ((uint8_t)entity.value != EMS_VALUE_BOOL_NOTSET) {
+                output[(const char *)entity.name] = ((uint8_t)entity.value != 0) ? 1 : 0;
+                added               = true;
+            }
+        } else if (entity.value_type == DeviceValueType::INT8 || entity.value_type == DeviceValueType::UINT8 || entity.value_type == DeviceValueType::INT16
+                   || entity.value_type == DeviceValueType::UINT16 || entity.value_type == DeviceValueType::UINT24
+                   || entity.value_type == DeviceValueType::TIME || entity.value_type == DeviceValueType::UINT32) {
+            const size_t before = output.size();
+            render_value(output, entity); // skips values that aren't set
+            added |= (output.size() > before);
+        }
+    }
+    return added;
 }
 
 // display all custom entities
@@ -493,7 +517,8 @@ void WebCustomEntityService::publish_single(CustomEntityItem & entity) {
 
 // publish to Mqtt
 void WebCustomEntityService::publish(const bool force) {
-    if (!Mqtt::enabled() || customEntityItems_->empty()) {
+    // with telemetry readings the values go out in <base>/telemetry/readings instead
+    if (!Mqtt::enabled() || customEntityItems_->empty() || Mqtt::telemetry_readings()) {
         return;
     }
 

@@ -206,6 +206,7 @@ const en: Translation = {
   MQTT_NEST_1: 'Nested in a single topic',
   MQTT_NEST_2: 'As individual topics',
   MQTT_RESPONSE: 'Publish command output to a `response` topic',
+  MQTT_TELEMETRY: 'Publish all values as one numeric JSON message to `telemetry/readings` (replaces device topics, disables HA discovery)',
   MQTT_PUBLISH_TEXT_1: 'Publish single value topics on change',
   MQTT_PUBLISH_TEXT_2: 'Publish to command topics (ioBroker)',
   MQTT_PUBLISH_TEXT_3: 'Enable MQTT Discovery',

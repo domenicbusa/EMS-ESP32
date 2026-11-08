@@ -304,6 +304,16 @@ const MqttSettings = () => {
           }
           label={LL.MQTT_RESPONSE()}
         />
+        <BlockFormControlLabel
+          control={
+            <Checkbox
+              name="telemetry_readings"
+              checked={data.telemetry_readings}
+              onChange={updateFormValue}
+            />
+          }
+          label={LL.MQTT_TELEMETRY()}
+        />
         <Grid container spacing={2} rowSpacing={0}>
           <Grid>
             <BlockFormControlLabel
@@ -312,7 +322,7 @@ const MqttSettings = () => {
                   name="publish_single"
                   checked={data.publish_single}
                   onChange={updateFormValue}
-                  disabled={data.ha_enabled}
+                  disabled={data.ha_enabled || data.telemetry_readings}
                 />
               }
               label={LL.MQTT_PUBLISH_TEXT_1()}
@@ -341,7 +351,7 @@ const MqttSettings = () => {
                 name="ha_enabled"
                 checked={data.ha_enabled}
                 onChange={updateFormValue}
-                disabled={data.publish_single}
+                disabled={data.publish_single || data.telemetry_readings}
               />
             }
             label={LL.MQTT_PUBLISH_TEXT_3()}

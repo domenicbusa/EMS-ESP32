@@ -500,7 +500,8 @@ void TemperatureSensor::remove_ha_topic(const char * id) {
 
 // send all temperature sensor values as a JSON package to MQTT
 void TemperatureSensor::publish_values(const bool force) {
-    if (!Mqtt::enabled()) {
+    // with telemetry readings the values go out in <base>/telemetry/readings instead
+    if (!Mqtt::enabled() || Mqtt::telemetry_readings()) {
         return;
     }
 

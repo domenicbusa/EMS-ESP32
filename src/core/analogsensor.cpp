@@ -706,7 +706,7 @@ void AnalogSensor::remove_ha_topic(const int8_t type, const uint8_t gpio) const 
 void AnalogSensor::publish_values(const bool force) {
     uint8_t num_sensors = sensors_.size();
 
-    if (!Mqtt::enabled() || num_sensors == 0) {
+    if (!Mqtt::enabled() || num_sensors == 0 || Mqtt::telemetry_readings()) {
         return;
     }
 

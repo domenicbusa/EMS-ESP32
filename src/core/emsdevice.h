@@ -290,7 +290,7 @@ class EMSdevice {
     std::string get_metrics_prometheus(const int8_t tag = -1);
     void        get_dv_info(JsonObject json);
 
-    enum OUTPUT_TARGET : uint8_t { API_VERBOSE, API_SHORTNAMES, MQTT, CONSOLE };
+    enum OUTPUT_TARGET : uint8_t { API_VERBOSE, API_SHORTNAMES, MQTT, CONSOLE, TELEMETRY };
     bool generate_values(JsonObject output, const int8_t tag_filter, const bool nested, const uint8_t output_target);
     void generate_values_web(JsonObject output, const bool is_dashboard = false);
     void generate_values_web_customization(JsonArray output);

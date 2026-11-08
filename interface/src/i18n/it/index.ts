@@ -206,6 +206,7 @@ const it: Translation = {
   MQTT_NEST_1: 'Inserito in un singolo argomento',
   MQTT_NEST_2: 'Come argomenti individuali',
   MQTT_RESPONSE: 'Pubblica uscita del comando in un argomento di risposta',
+  MQTT_TELEMETRY: 'Publish all values as one numeric JSON message to `telemetry/readings` (replaces device topics, disables HA discovery)',
   MQTT_PUBLISH_TEXT_1: 'Pubblica argomenti a valore singolo sul cambiamento',
   MQTT_PUBLISH_TEXT_2: 'Pubblica per comandare gli argomenti (ioBroker)',
   MQTT_PUBLISH_TEXT_3: 'Abilita rilevamento MQTT (Home Assistant, Domoticz)',

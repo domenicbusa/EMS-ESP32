@@ -2959,6 +2959,7 @@ bool System::command_info(const char * value, const int8_t id, JsonObject output
         node["publishSingle"]         = settings.publish_single;
         node["publish2command"]       = settings.publish_single2cmd;
         node["sendResponse"]          = settings.send_response;
+        node["telemetryReadings"]     = settings.telemetry_readings;
     });
 
     // Syslog Status

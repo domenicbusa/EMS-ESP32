@@ -102,6 +102,7 @@ class MqttSettings {
     bool     publish_single          = EMSESP_DEFAULT_PUBLISH_SINGLE;
     bool     publish_single2cmd      = EMSESP_DEFAULT_PUBLISH_SINGLE2CMD;
     bool     send_response           = EMSESP_DEFAULT_SEND_RESPONSE;
+    bool     telemetry_readings      = EMSESP_DEFAULT_TELEMETRY_READINGS; // flat numeric JSON to <base>/readings/<device>
     uint8_t  entity_format           = EMSESP_DEFAULT_ENTITY_FORMAT;
 
     static void              read(MqttSettings & settings, JsonObject root);
