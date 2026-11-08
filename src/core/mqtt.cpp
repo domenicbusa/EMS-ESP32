@@ -72,6 +72,10 @@ MAKE_WORD_CUSTOM(iconnum, "mdi:counter")              // DeviceValueUOM::NONE
 
 uuid::log::Logger Mqtt::logger_{F_(mqtt), uuid::log::Facility::DAEMON};
 
+// MQTT traffic at DEBUG level. Unlike LOG_DEBUG this is compiled into every build (not only EMSESP_DEBUG ones),
+// and costs nothing unless the log level is set to DEBUG or ALL
+#define LOG_MQTT_DEBUG(...) (logger_.enabled(uuid::log::Level::DEBUG) ? logger_.debug(__VA_ARGS__) : (void)0)
+
 // subscribe to an MQTT topic, and store the associated callback function
 // only if it already hasn't been added
 // topics exclude the base
@@ -495,6 +499,18 @@ bool Mqtt::get_publish_onchange(uint8_t device_type) {
 }
 
 // human-readable cause for a MQTT disconnect reason, nullptr if not recognized
+// broker's answer to a subscribe (SUBACK), at DEBUG level. A refused subscription is expected when the broker ACL
+// gives this device no read access (e.g. publish-only users): EMS-ESP then just never receives commands over MQTT
+void Mqtt::on_subscribe_ack(uint16_t packet_id, const espMqttClientTypes::SubscribeReturncode * codes, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        if (codes[i] == espMqttClientTypes::SubscribeReturncode::FAIL) {
+            LOG_MQTT_DEBUG("MQTT subscribe pid %d refused by the broker (no read access in its ACL?)", packet_id);
+        } else {
+            LOG_MQTT_DEBUG("MQTT subscribe pid %d granted, %s", packet_id, espMqttClientTypes::subscribeReturncodeToString(codes[i]));
+        }
+    }
+}
+
 void Mqtt::on_disconnect(espMqttClientTypes::DisconnectReason reason) {
     connected_ = false;
 
@@ -674,13 +690,21 @@ bool Mqtt::queue_message(const uint8_t operation, const std::string & topic, con
     if (operation == Operation::PUBLISH) {
         packet_id = mqttClient_->publish(fulltopic, mqtt_qos_, retain, payload.c_str());
         mqtt_message_id_++;
-        LOG_DEBUG("Publishing topic '%s', pid %d", fulltopic, packet_id);
+        // payload is cut at 100 characters to keep the line short; QoS 0 messages have no packet id (pid 1 means queued)
+        LOG_MQTT_DEBUG("MQTT publish '%s' (%u bytes, QoS %d%s, pid %d): %.100s%s",
+                       fulltopic,
+                       static_cast<unsigned>(payload.size()),
+                       mqtt_qos_,
+                       retain ? ", retained" : "",
+                       packet_id,
+                       payload.c_str(),
+                       payload.size() > 100 ? "..." : "");
     } else if (operation == Operation::SUBSCRIBE) {
         packet_id = mqttClient_->subscribe(fulltopic, mqtt_qos_);
-        LOG_DEBUG("Subscribing to topic '%s', pid %d", fulltopic, packet_id);
+        LOG_MQTT_DEBUG("MQTT subscribe '%s', pid %d", fulltopic, packet_id);
     } else if (operation == Operation::UNSUBSCRIBE) {
         packet_id = mqttClient_->unsubscribe(fulltopic);
-        LOG_DEBUG("Unsubscribing to topic '%s', pid %d", fulltopic, packet_id);
+        LOG_MQTT_DEBUG("MQTT unsubscribe '%s', pid %d", fulltopic, packet_id);
     }
 #ifndef EMSESP_STANDALONE
     if (packet_id == 0) {

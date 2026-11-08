@@ -809,6 +809,9 @@ void EMSESP::publish_telemetry_readings() {
     }
 
     if (!has_values) {
+        if (logger_.enabled(uuid::log::Level::DEBUG)) {
+            logger_.debug("MQTT telemetry readings: nothing to publish yet (no custom entity, EMS device or sensor has a value)");
+        }
         return;
     }
 

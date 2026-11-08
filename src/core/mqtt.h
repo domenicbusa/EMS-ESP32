@@ -68,6 +68,7 @@ class Mqtt {
 
     static void on_connect();
     static void on_disconnect(espMqttClientTypes::DisconnectReason reason);
+    static void on_subscribe_ack(uint16_t packet_id, const espMqttClientTypes::SubscribeReturncode * codes, size_t len);
     static void on_message(const char * topic, const uint8_t * payload, size_t len);
     static void subscribe(const uint8_t device_type, const std::string & topic, mqtt_sub_function_p cb);
     static void subscribe(const std::string & topic);

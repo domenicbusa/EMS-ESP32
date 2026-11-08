@@ -72,6 +72,9 @@ void MqttSettingsService::startClient() {
 
         static_cast<espMqttClientSecure *>(_mqttClient)->onConnect([this](bool sessionPresent) { onMqttConnect(sessionPresent); });
         static_cast<espMqttClientSecure *>(_mqttClient)->onDisconnect([this](espMqttClientTypes::DisconnectReason reason) { onMqttDisconnect(reason); });
+        static_cast<espMqttClientSecure *>(_mqttClient)->onSubscribe([](uint16_t packetId, const espMqttClientTypes::SubscribeReturncode * codes, size_t len) {
+            emsesp::EMSESP::mqtt_.on_subscribe_ack(packetId, codes, len);
+        });
         static_cast<espMqttClientSecure *>(_mqttClient)
             ->onMessage(
                 [this](const espMqttClientTypes::MessageProperties & properties, const char * topic, const uint8_t * payload, size_t len, size_t index, size_t total) {
@@ -90,6 +93,9 @@ void MqttSettingsService::startClient() {
 
     static_cast<espMqttClient *>(_mqttClient)->onConnect([this](bool sessionPresent) { onMqttConnect(sessionPresent); });
     static_cast<espMqttClient *>(_mqttClient)->onDisconnect([this](espMqttClientTypes::DisconnectReason reason) { onMqttDisconnect(reason); });
+    static_cast<espMqttClient *>(_mqttClient)->onSubscribe([](uint16_t packetId, const espMqttClientTypes::SubscribeReturncode * codes, size_t len) {
+        emsesp::EMSESP::mqtt_.on_subscribe_ack(packetId, codes, len);
+    });
     static_cast<espMqttClient *>(_mqttClient)
         ->onMessage(
             [this](const espMqttClientTypes::MessageProperties & properties, const char * topic, const uint8_t * payload, size_t len, size_t index, size_t total) {
