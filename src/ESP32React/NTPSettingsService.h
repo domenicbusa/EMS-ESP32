@@ -71,6 +71,14 @@ class NTPSettingsService : public StatefulService<NTPSettings> {
 
     void configureNTP();
     void configureTime(AsyncWebServerRequest * request, JsonVariant json);
+
+    // diagnostics while waiting for the first sync
+    uint32_t    _startedAt = 0; // uptime (ms) when SNTP was started, 0 when not running
+    uint8_t     _warnings  = 0; // "no sync yet" warnings logged since the start
+    static bool          _firstSync;   // next sync is the first since the start, logged at INFO
+    static volatile bool _syncPending; // set by the SNTP callback (network task), logged from loop()
+    static volatile long _syncTime;    // the time that sync set, Unix seconds
+    void        logNoSync(uint32_t waited_s);
 };
 
 #endif
